@@ -20,6 +20,7 @@ export interface CoreTask {
   deadline: CoreDeadline | null;
   isDeleted?: boolean;
   checked?: boolean;
+  content: string;
 }
 
 export type EligibilityResult =

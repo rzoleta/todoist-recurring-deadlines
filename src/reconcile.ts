@@ -20,7 +20,7 @@ export async function runReconcile(client: TodoistClient): Promise<ReconcileSumm
       await client.updateDeadline(result.taskId, result.deadline);
       summary.updated += 1;
     } else {
-      console.log(`  skip task=${task.id} reason="${result.reason}"`);
+      console.log(`  skip task=${task.id} content=${task.content} reason="${result.reason}"`);
       summary.skipped += 1;
     }
   }

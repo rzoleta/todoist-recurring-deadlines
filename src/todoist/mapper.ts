@@ -7,14 +7,15 @@ export function mapTask(task: Task): CoreTask {
     labels: task.labels,
     due: task.due
       ? {
-          date: task.due.date,
-          datetime: task.due.datetime,
-          isRecurring: task.due.isRecurring,
-          string: task.due.string,
-        }
+        date: task.due.date,
+        datetime: task.due.datetime,
+        isRecurring: task.due.isRecurring,
+        string: task.due.string,
+      }
       : null,
     deadline: task.deadline ? { date: task.deadline.date } : null,
     checked: task.checked,
     isDeleted: task.isDeleted,
+    content: task.content
   };
 }
