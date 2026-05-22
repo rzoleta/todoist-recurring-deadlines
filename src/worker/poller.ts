@@ -18,18 +18,26 @@ export interface RepairEvent {
   deadline: string;
 }
 
+export interface SkipEvent {
+  taskId: string;
+  reason: string;
+}
+
 export type RepairListener = (event: RepairEvent) => Promise<void>;
+export type SkipListener = (event: SkipEvent) => Promise<void>;
 
 export interface PollOptions {
   forceFullSync?: boolean;
   fullReconcileIntervalHours: number;
   optInLabel: string;
   onRepair?: RepairListener;
+  onSkip?: SkipListener;
 }
 
 export interface ReconcileOptions {
   optInLabel: string;
   onRepair?: RepairListener;
+  onSkip?: SkipListener;
 }
 
 const ZERO_SUMMARY: RunSummary = { scanned: 0, updated: 0, skipped: 0 };
@@ -45,7 +53,7 @@ export async function runPoll(
 
     try {
       const response = await client.syncItems(syncToken);
-      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair);
+      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair, options.onSkip);
       state = { ...state, syncToken: response.syncToken, lastSyncAt: new Date().toISOString() };
 
       if (!options.forceFullSync && shouldRunFullReconcile(state, options.fullReconcileIntervalHours)) {
@@ -59,7 +67,7 @@ export async function runPoll(
       if (!(error instanceof InvalidSyncTokenError)) throw error;
 
       const response = await client.syncItems("*");
-      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair);
+      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair, options.onSkip);
       await store.save({
         ...state,
         syncToken: response.syncToken,
@@ -92,7 +100,7 @@ async function runFullReconcileWithoutLock(
   options: ReconcileOptions,
 ): Promise<RunSummary> {
   const tasks = await client.getActiveTasksByLabel(options.optInLabel);
-  const summary = await processTasks(tasks, client, options.onRepair);
+  const summary = await processTasks(tasks, client, options.onRepair, options.onSkip);
   await store.save({ ...state, lastFullReconcileAt: new Date().toISOString() });
   return summary;
 }
@@ -101,6 +109,7 @@ async function processTasks(
   tasks: CoreTask[],
   client: TodoistClient,
   onRepair: RepairListener | undefined,
+  onSkip: SkipListener | undefined,
 ): Promise<RunSummary> {
   const summary: RunSummary = { scanned: 0, updated: 0, skipped: 0 };
 
@@ -119,6 +128,9 @@ async function processTasks(
       }
       summary.updated += 1;
     } else {
+      if (onSkip) {
+        await onSkip({ taskId: task.id, reason: result.reason });
+      }
       summary.skipped += 1;
     }
   }

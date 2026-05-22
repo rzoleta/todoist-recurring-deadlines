@@ -10,3 +10,5 @@ web/.env
 web/.env.local
 web/.env.*.local
 web/tsconfig.tsbuildinfo
+
+.env

@@ -42,6 +42,9 @@ async function pollCommand(parsed: ParsedArgs): Promise<void> {
     forceFullSync: parsed.flags.full === true,
     fullReconcileIntervalHours: config.fullReconcileIntervalHours,
     optInLabel: config.optInLabel,
+    onSkip: async ({ taskId, reason }) => {
+      console.log(`  skip task=${taskId} reason="${reason}"`);
+    },
   });
   printSummary("Poll complete", summary);
 }
@@ -59,6 +62,9 @@ async function reconcileCommand(): Promise<void> {
   const config = await loadConfig();
   const summary = await runFullReconcile(storeFor(config), new SdkTodoistClient(config.todoistApiToken), {
     optInLabel: config.optInLabel,
+    onSkip: async ({ taskId, reason }) => {
+      console.log(`  skip task=${taskId} reason="${reason}"`);
+    },
   });
   printSummary("Reconcile complete", summary);
 }
