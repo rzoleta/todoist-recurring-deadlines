@@ -24,7 +24,7 @@ This is currently a self-hosted command-line tool. There is no web app yet.
 
 ## How It Works
 
-The tool checks your Todoist account every few minutes. When it finds an opted-in task whose deadline is behind its due date, it moves the deadline forward.
+When you run the tool, it scans your opted-in Todoist tasks. For any task whose deadline is behind its due date, it moves the deadline forward.
 
 Only tasks with this label are touched:
 
@@ -34,14 +34,14 @@ recurring-deadline
 
 This is intentional. You choose exactly which tasks the tool is allowed to manage.
 
-V1 supports simple date-only recurring tasks:
+Supported recurrences (date-only):
 
 - daily
 - weekly
 - monthly
 - yearly
 
-V1 ignores tasks with times, such as “due at 9am”.
+Tasks with times (such as "due at 9am") are ignored.
 
 ## What Gets Changed
 
@@ -69,81 +69,22 @@ bun install
 
 ## Set Up Todoist
 
-Run setup:
+1. Find your Todoist API token at: `Settings -> Integrations -> Developer -> API token`.
+2. Put it in a `.env` file at the project root:
+
+   ```txt
+   TODOIST_API_TOKEN=your_todoist_api_token
+   ```
+
+3. In Todoist, create a label named `recurring-deadline` and add it to any task you want managed. Tasks also need a recurring due date, a deadline, and no due/deadline times.
+
+## Run
 
 ```sh
-bun run start setup
+bun run start
 ```
 
-You will be asked for your Todoist API token.
-
-You can find it in Todoist:
-
-```txt
-Settings -> Integrations -> Developer -> API token
-```
-
-Setup will:
-
-- check that your token works
-- save it locally
-- create the `recurring-deadline` label if it does not already exist
-
-Your local settings are saved in:
-
-```txt
-.todoist-recurring-deadlines/
-```
-
-Do not commit this folder. It can contain your Todoist API token.
-
-## Choose Tasks To Manage
-
-In Todoist, add the label to any task you want managed:
-
-```txt
-recurring-deadline
-```
-
-The task should also have:
-
-- a recurring due date
-- a deadline
-- no due time or deadline time
-
-## Run Once
-
-To check Todoist one time:
-
-```sh
-bun run start poll
-```
-
-To force a full check of all tasks and refresh local sync state:
-
-```sh
-bun run start poll --full
-```
-
-## Run Continuously
-
-To keep the tool running in the background:
-
-```sh
-bun run start daemon
-```
-
-This checks Todoist every 5 minutes.
-
-## Repair Scan
-
-If you think something was missed, run a full repair scan:
-
-```sh
-bun run start reconcile
-```
-
-This checks active tasks with the `recurring-deadline` label and repairs stale deadlines.
+This is a one-shot run. It checks active labelled tasks, repairs stale deadlines, and exits. Schedule it with cron, launchd, or any other scheduler if you want it to run regularly.
 
 ## Docker
 
@@ -158,42 +99,10 @@ Run it:
 ```sh
 docker run \
   -e TODOIST_API_TOKEN=your_todoist_api_token \
-  -v todoist-recurring-deadlines:/data \
   todoist-recurring-deadlines
 ```
 
-The Docker container runs continuously by default.
-
-The `/data` volume stores local sync state so the tool does not need to start from scratch every time the container restarts.
-
-## Railway
-
-Deploy this repo as a Docker service.
-
-Required Railway settings:
-
-- Add `TODOIST_API_TOKEN` as an environment variable.
-- Add a persistent volume mounted at `/data`.
-
-The included Dockerfile already runs the tool in continuous mode.
-
-## Commands
-
-```sh
-bun run start setup
-bun run start poll
-bun run start poll --full
-bun run start daemon
-bun run start reconcile
-```
-
-Command summary:
-
-- `setup`: save and validate your Todoist token
-- `poll`: check Todoist once
-- `poll --full`: check all synced Todoist tasks and refresh local sync state
-- `daemon`: keep checking every 5 minutes
-- `reconcile`: run a full repair scan for labelled active tasks
+The container runs once and exits.
 
 ## Tests
 
@@ -203,7 +112,7 @@ Run all tests:
 bun test
 ```
 
-Some tests create, update, and delete real Todoist tasks. They use your saved Todoist token. If no token is configured, those tests fail.
+The integration test creates, updates, and deletes real Todoist tasks. It uses `TODOIST_API_TOKEN` from your environment. If the token is missing, the integration test fails.
 
 To run only the Todoist integration tests:
 
@@ -213,21 +122,7 @@ bun test tests/integration/todoist.integration.test.ts
 
 ## VS Code / Cursor Debugging
 
-This repo includes debug profiles in `.vscode/launch.json`.
+This repo includes a debug profile in `.vscode/launch.json`:
 
-Open the Run and Debug panel and choose one of:
-
-- `Debug CLI: poll`
-- `Debug CLI: poll --full`
 - `Debug CLI: reconcile`
-- `Debug CLI: daemon`
-- `Debug CLI: setup`
 - `Debug Current Bun Test File`
-
-## Design Notes
-
-For implementation details and architecture decisions, see:
-
-```txt
-docs/design-v1.md
-```

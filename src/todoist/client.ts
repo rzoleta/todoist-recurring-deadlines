@@ -1,36 +1,12 @@
 import { TodoistApi, type Task } from "@doist/todoist-api-typescript";
-import { OPT_IN_LABEL } from "../core/types";
 import { mapTask } from "./mapper";
-import { syncItems, type SyncResponse } from "./sync";
 import type { CoreTask } from "../core/types";
 
-export interface TodoistClient {
-  validateToken(): Promise<void>;
-  ensureOptInLabel(): Promise<void>;
-  syncItems(syncToken: string): Promise<SyncResponse>;
-  updateDeadline(taskId: string, deadline: string): Promise<void>;
-  getActiveTasksByLabel(label: string): Promise<CoreTask[]>;
-}
-
-export class SdkTodoistClient implements TodoistClient {
+export class TodoistClient {
   private readonly api: TodoistApi;
 
-  constructor(private readonly apiToken: string) {
+  constructor(apiToken: string) {
     this.api = new TodoistApi(apiToken);
-  }
-
-  async validateToken(): Promise<void> {
-    await this.api.getTasks({ limit: 1 });
-  }
-
-  async ensureOptInLabel(): Promise<void> {
-    const labels = await this.api.getLabels();
-    if (labels.results.some((label) => label.name === OPT_IN_LABEL)) return;
-    await this.api.addLabel({ name: OPT_IN_LABEL });
-  }
-
-  async syncItems(syncToken: string): Promise<SyncResponse> {
-    return await syncItems(this.apiToken, syncToken);
   }
 
   async updateDeadline(taskId: string, deadline: string): Promise<void> {

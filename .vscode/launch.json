@@ -2,54 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug CLI: poll",
-      "type": "bun",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/cli/index.ts",
-      "args": ["poll"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    },
-    {
-      "name": "Debug CLI: poll --full",
-      "type": "bun",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/cli/index.ts",
-      "args": ["poll", "--full"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    },
-    {
       "name": "Debug CLI: reconcile",
       "type": "bun",
       "request": "launch",
       "program": "${workspaceFolder}/src/cli/index.ts",
-      "args": ["reconcile"],
       "cwd": "${workspaceFolder}",
-      // "console": "integratedTerminal",
       "internalConsoleOptions": "openOnSessionStart"
-    },
-    {
-      "name": "Debug CLI: daemon",
-      "type": "bun",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/cli/index.ts",
-      "args": ["daemon"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    },
-    {
-      "name": "Debug CLI: setup",
-      "type": "bun",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/cli/index.ts",
-      "args": ["setup"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
     },
     {
       "name": "Debug Current Bun Test File",

@@ -16,15 +16,9 @@
       "problemMatcher": "$tsc"
     },
     {
-      "label": "bun: poll",
+      "label": "bun: reconcile",
       "type": "shell",
-      "command": "bun run start poll",
-      "problemMatcher": []
-    },
-    {
-      "label": "bun: poll full",
-      "type": "shell",
-      "command": "bun run start poll --full",
+      "command": "bun run start",
       "problemMatcher": []
     }
   ]

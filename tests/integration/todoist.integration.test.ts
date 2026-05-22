@@ -1,27 +1,21 @@
 import { TodoistApi, type Task } from "@doist/todoist-api-typescript";
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { AppConfig } from "../../src/config/config";
-import { loadConfig } from "../../src/config/config";
 import { OPT_IN_LABEL } from "../../src/core/types";
-import { fileStateStore, loadState } from "../../src/state/file-state-store";
-import { SdkTodoistClient } from "../../src/todoist/client";
-import { runFullReconcile, runPoll } from "../../src/worker/poller";
+import { runReconcile } from "../../src/reconcile";
+import { TodoistClient } from "../../src/todoist/client";
 
 const createdTaskIds: string[] = [];
 
-let baseConfig: AppConfig;
 let api: TodoistApi;
-let client: SdkTodoistClient;
+let client: TodoistClient;
 
 describe("Todoist integration", () => {
   beforeAll(async () => {
-    baseConfig = await loadConfig();
-    api = new TodoistApi(baseConfig.todoistApiToken);
-    client = new SdkTodoistClient(baseConfig.todoistApiToken);
-    await client.ensureOptInLabel();
+    const token = process.env.TODOIST_API_TOKEN;
+    if (!token) throw new Error("TODOIST_API_TOKEN is required for integration tests");
+    api = new TodoistApi(token);
+    client = new TodoistClient(token);
+    await ensureOptInLabel(api);
   });
 
   afterEach(async () => {
@@ -35,86 +29,29 @@ describe("Todoist integration", () => {
     }
   });
 
-  test("poll --full repairs an active stale recurring task", async () => {
-    const config = await isolatedConfig();
-    const staleTask = await createStaleRecurringTask("poll-full");
+  test("reconcile repairs an active labelled stale recurring task", async () => {
+    const staleTask = await createStaleRecurringTask();
     const staleDates = taskDates(staleTask);
-
-    expect(staleTask.due?.isRecurring).toBe(true);
     expect(staleDates.deadline < staleDates.due).toBe(true);
 
-    await Bun.sleep(2_000);
-
-    const summary = await runPoll(storeFor(config), client, {
-      forceFullSync: true,
-      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
-      optInLabel: config.optInLabel,
-    });
+    const summary = await runReconcile(client);
     const repairedTask = await api.getTask(staleTask.id);
     const repairedDates = taskDates(repairedTask);
 
-    expect(summary.scanned).toBeGreaterThan(0);
     expect(summary.updated).toBeGreaterThan(0);
     expect(repairedDates.deadline >= repairedDates.due).toBe(true);
-    expect(await loadState(config.statePath)).toMatchObject({ syncToken: expect.any(String) });
-  }, 30_000);
-
-  test("incremental poll repairs a changed active stale recurring task using the saved sync token", async () => {
-    const config = await isolatedConfig();
-    await runPoll(storeFor(config), client, {
-      forceFullSync: true,
-      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
-      optInLabel: config.optInLabel,
-    });
-    const initialState = await loadState(config.statePath);
-    const staleTask = await createStaleRecurringTask("incremental-poll");
-    const staleDates = taskDates(staleTask);
-
-    expect(staleDates.deadline < staleDates.due).toBe(true);
-
-    const summary = await runPoll(storeFor(config), client, {
-      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
-      optInLabel: config.optInLabel,
-    });
-    const repairedTask = await api.getTask(staleTask.id);
-    const repairedDates = taskDates(repairedTask);
-    const nextState = await loadState(config.statePath);
-
-    expect(initialState.syncToken).toBeTruthy();
-    expect(nextState.syncToken).toBeTruthy();
-    expect(nextState.syncToken).not.toBe(initialState.syncToken);
-    expect(summary.updated).toBeGreaterThan(0);
-    expect(repairedDates.deadline >= repairedDates.due).toBe(true);
-  }, 30_000);
-
-  test("reconcile repairs an active labelled task without replacing the sync token", async () => {
-    const config = await isolatedConfig();
-    await runPoll(storeFor(config), client, {
-      forceFullSync: true,
-      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
-      optInLabel: config.optInLabel,
-    });
-    const stateBeforeReconcile = await loadState(config.statePath);
-    const staleTask = await createStaleRecurringTask("reconcile");
-    const staleDates = taskDates(staleTask);
-
-    expect(staleDates.deadline < staleDates.due).toBe(true);
-
-    const summary = await runFullReconcile(storeFor(config), client, { optInLabel: config.optInLabel });
-    const repairedTask = await api.getTask(staleTask.id);
-    const repairedDates = taskDates(repairedTask);
-    const stateAfterReconcile = await loadState(config.statePath);
-
-    expect(summary.updated).toBeGreaterThan(0);
-    expect(repairedDates.deadline >= repairedDates.due).toBe(true);
-    expect(stateAfterReconcile.syncToken).toBe(stateBeforeReconcile.syncToken);
-    expect(stateAfterReconcile.lastFullReconcileAt).toEqual(expect.any(String));
   }, 30_000);
 });
 
-async function createStaleRecurringTask(testName: string): Promise<Task> {
+async function ensureOptInLabel(api: TodoistApi): Promise<void> {
+  const labels = await api.getLabels();
+  if (labels.results.some((label) => label.name === OPT_IN_LABEL)) return;
+  await api.addLabel({ name: OPT_IN_LABEL });
+}
+
+async function createStaleRecurringTask(): Promise<Task> {
   const task = await api.addTask({
-    content: `[todoist-recurring-deadlines integration ${testName}] ${crypto.randomUUID()}`,
+    content: `[todoist-recurring-deadlines integration] ${crypto.randomUUID()}`,
     labels: [OPT_IN_LABEL],
     dueString: "every month",
   });
@@ -123,21 +60,6 @@ async function createStaleRecurringTask(testName: string): Promise<Task> {
   if (!task.due) throw new Error(`Test task ${task.id} is missing due date after creation`);
   const staleDeadline = addMonthsClamped(task.due.date, -1);
   return await api.updateTask(task.id, { deadlineDate: staleDeadline });
-}
-
-function storeFor(config: AppConfig) {
-  return fileStateStore({ statePath: config.statePath, lockPath: config.lockPath });
-}
-
-async function isolatedConfig(): Promise<AppConfig> {
-  const directory = await mkdtemp(join(tmpdir(), "todoist-recurring-deadlines-integration-"));
-  return {
-    ...baseConfig,
-    statePath: join(directory, "state.json"),
-    lockPath: join(directory, "poller.lock"),
-    configPath: join(directory, "config.json"),
-    fullReconcileIntervalHours: 24,
-  };
 }
 
 function taskDates(task: Task): { due: string; deadline: string } {

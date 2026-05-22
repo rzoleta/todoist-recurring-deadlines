@@ -8,6 +8,4 @@ RUN bun install --frozen-lockfile
 COPY src ./src
 COPY README.md ./README.md
 
-ENV TODOIST_DATA_DIR=/data
-
-CMD ["bun", "run", "src/cli/index.ts", "daemon"]
+CMD ["bun", "run", "src/cli/index.ts"]
