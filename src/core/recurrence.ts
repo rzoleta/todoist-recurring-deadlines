@@ -8,7 +8,7 @@ export function parseRecurrenceInterval(dueString: string): RecurrenceInterval |
   if (normalized === "weekly" || normalized === "every week") return "weekly";
   if (normalized === "monthly" || normalized === "every month") return "monthly";
   if (["yearly", "annually", "every year"].includes(normalized)) return "yearly";
-  if (/^every \d+(st|nd|rd|th)$/.test(normalized)) return "monthly";
+  if (/^every \d+(st|nd|rd|th)?$/.test(normalized)) return "monthly";
 
   return null;
 }
